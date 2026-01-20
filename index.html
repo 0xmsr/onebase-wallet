@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONEBASE Wallet v1</title>
+    <link rel="stylesheet" href="wallet.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+    <div class="max-w-md mx-auto py-8 px-4">
+        <div class="wallet-card overflow-hidden">
+            
+            <div class="bg-blue-600/80 p-6 text-center border-b border-white/10">
+                <h1 class="text-xl font-black tracking-tighter text-white uppercase">
+                    ONEBASE WALLET
+                    <span class="block text-[9px] bg-blue-800/50 inline-block px-3 py-1 rounded-full mt-2 tracking-widest">TESTNET V1.1</span>
+                </h1>
+            </div>
+
+            <div class="p-6">
+                <div id="setupView" class="space-y-6">
+                    <div class="bg-slate-700/10 p-8 rounded-2xl border-2 border-dashed border-slate-600 text-center">
+                        <button onclick="createWallet()" class="w-full bg-white text-slate-900 font-bold py-3.5 rounded-xl hover:bg-slate-200 transition active:scale-95 mb-4 shadow-lg">
+                            Buat Wallet Baru
+                        </button>
+                        <button onclick="importWallet()" class="w-full bg-slate-700/50 hover:bg-slate-600 text-white font-bold py-3.5 rounded-xl transition active:scale-95 border border-slate-600">
+                            Import Mnemonic
+                        </button>
+                    </div>
+                </div>
+
+                <div id="walletView" class="hidden space-y-6">
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center px-1">
+                            <button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase hover:underline">Hapus Semua Wallet</button>
+                        </div>
+                        <select id="walletSelector" onchange="switchWallet(this.value)" class="w-full p-3 rounded-xl text-xs font-bold outline-none text-blue-400 cursor-pointer"></select>
+                        <button onclick="addNewWallet()" class="w-full py-2 text-[9px] bg-slate-800/30 border border-slate-700 rounded-lg hover:bg-slate-700 text-slate-400 uppercase font-bold transition">+ Tambah Akun Lain</button>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-slate-700/50 to-slate-800/50 p-6 rounded-2xl border border-white/10 shadow-xl relative overflow-hidden">
+                        <p class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Saldo Tersedia</p>
+                        <h2 id="myBalance" class="text-4xl font-black mt-1 text-white leading-none">0.0000 <span class="text-sm font-normal text-slate-400">ONE</span></h2>
+                        
+                        <div class="mt-6 p-3 bg-black/40 rounded-xl border border-white/5 flex justify-between items-center">
+                            <div class="overflow-hidden">
+                                <p class="text-[8px] text-slate-500 uppercase font-black">Address</p>
+                                <p id="myAddr" class="text-[10px] font-mono text-blue-300 truncate pr-2">one...</p>
+                            </div>
+                            <button onclick="copyToClipboard(document.getElementById('myAddr').innerText, 'Alamat')" class="bg-slate-800 p-2 rounded-lg hover:bg-blue-600 transition">
+                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-8a2 2 0 00-2-2H8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex space-x-2">
+                            <input type="text" id="toAddr" placeholder="Alamat 'one...'" class="flex-1 p-3 rounded-xl text-xs outline-none">
+                            <input type="number" id="amount" placeholder="0.0" class="w-24 p-3 rounded-xl text-xs outline-none">
+                        </div>
+                        <button onclick="sendTransaction()" id="btnSend" class="w-full btn-primary font-bold py-4 rounded-xl shadow-lg transition active:scale-95 text-white">Kirim Aset</button>
+                    </div>
+
+                    <div class="pt-2">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase mb-3 px-1 tracking-widest">Aktivitas</p>
+                        <div id="txHistory" class="space-y-2 max-h-40 overflow-y-auto pr-1"></div>
+                    </div>
+
+                    <div class="border-t border-white/5 pt-4">
+                        <button onclick="toggleSecret()" class="w-full text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase tracking-tighter transition">Backup Data Rahasia</button>
+                        <div id="secretArea" class="hidden mt-4 p-4 bg-black/40 rounded-xl space-y-3 border border-red-900/20">
+                            <p id="displaySeed" class="text-[9px] font-mono text-slate-500 break-words"></p>
+                            <p id="displayPriv" class="text-[9px] font-mono text-slate-500 break-all"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="addWalletModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-xs rounded-3xl overflow-hidden shadow-2xl transform transition-all">
+            <div class="p-6 space-y-4">
+                <h3 class="text-center font-black text-white uppercase tracking-tighter">Tambah Akun</h3>
+                
+                <button onclick="executeAdd('create')" class="w-full flex items-center p-4 bg-slate-700/50 hover:bg-blue-600 rounded-2xl transition group">
+                    <div class="bg-blue-500 p-2 rounded-lg mr-4 group-hover:bg-white transition">
+                        <svg class="h-5 w-5 text-white group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm font-bold text-white">Buat Baru</p>
+                        <p class="text-[10px] text-slate-400 group-hover:text-blue-100">Hasilkan phrase baru</p>
+                    </div>
+                </button>
+
+                <button onclick="executeAdd('import')" class="w-full flex items-center p-4 bg-slate-700/50 hover:bg-purple-600 rounded-2xl transition group">
+                    <div class="bg-purple-500 p-2 rounded-lg mr-4 group-hover:bg-white transition">
+                        <svg class="h-5 w-5 text-white group-hover:text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                        </svg>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm font-bold text-white">Import Akun</p>
+                        <p class="text-[10px] text-slate-400 group-hover:text-purple-100">Gunakan phrase lama</p>
+                    </div>
+                </button>
+
+                <button onclick="closeAddModal()" class="w-full py-2 text-[10px] text-slate-500 font-bold uppercase hover:text-white transition">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="wallet.js"></script>
+</body>
+</html>
